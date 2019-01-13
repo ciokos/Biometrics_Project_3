@@ -1,6 +1,3 @@
-//a button
-Button button;
-
 //loaded image
 PImage image;
 

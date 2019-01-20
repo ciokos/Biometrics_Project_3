@@ -10,22 +10,28 @@ int[] bitmap;
 //deletion array
 IntList A0, A1, A2, A3, A4, A5, A1pix;
 
-//mask
+//mask for calculating weights
 int[] mask;
 
 //file name
-String filename = "signature.png";
+String filename = "fingerprint.png";
 
 void setup() {
   //create window
   //to fit the image you can change the size of the window
-  size(419, 600);
-  background(30); //<>//
+  size(419, 600);   //<>//
+  
+  // load image
   image = loadImage("../" + filename);
+  
+  // initialize bitmap array
   bitmap = new int[image.pixels.length];
+  
+  // save width and height of the image
   w = image.width;
   h = image.height;
   
+  // initialize deletion arrays
   A0 = new IntList(new int[]{3, 6, 7, 12, 14, 15, 24, 28, 30, 31, 48, 56, 60,
       62, 63, 96, 112, 120, 124, 126, 127, 129, 131, 135,
       143, 159, 191, 192, 193, 195, 199, 207, 223, 224,
@@ -56,46 +62,91 @@ void setup() {
          224, 225, 227, 231, 239, 240, 241, 243, 247, 248,
          249, 251, 252, 253, 254});
          
+  // initialize th mask
   mask = new int[]{128, 1, 2, 4, 8, 16, 32, 64};
-  image = binarize(image, 128);
+  
+  // convert image to grayscale and binarize with a given threshold
+  image = binarize(image, 120);
+  
+  // thinning of the binary image
   thinning();
+  
+  // draw the result
   drawBitmap();
 }
 
+
+// main function of the algorithm
 void thinning() {
+  // flag for detecting changes
   boolean changed = true;
+  // do phases until there is no change
   while(changed) {
-    changed = phase(A0, 2);
-    phase(A1, 0);
-    phase(A2, 0);
-    phase(A3, 0);
-    phase(A4, 0);
-    phase(A5, 0);
-    phase(A1pix, 0);
+    // execute all phases
+    changed = false;
+    phase(A0, 2, 1); //<>//
+    if(phase(A1, 0, 2))
+      changed = true;
+    if(phase(A2, 0, 2))
+      changed = true;
+    if(phase(A3, 0, 2))
+      changed = true;
+    if(phase(A4, 0, 2))
+      changed = true;
+    if(phase(A5, 0, 2))
+      changed = true;
+    phase6();
   }
+  // execute last phase
+  phase(A1pix, 0, 2);
 }
 
-boolean phase(IntList A, int newValue) {
+// function for implementing all of the phases
+// A: deletion array for the phase
+// newValue: new value of the pixel (0 or 2)
+// focus: are we looking for border pixels (2) or any object (1)
+boolean phase(IntList A, int newValue, int focus) {
+  // flag for detecting changes
   boolean changed = false;
-  int focus = 2;
-  if(newValue > 1)
-    focus = 1;
+  // loop through every pixel
   for(int y = 0; y < h; y++) {
     for(int x = 0; x < w; x++) {
+      // do you want to look at this pixel?
       if(bitmap[x + y * w] == focus) {
+        // if yes, calculate its weight
         int weight = useMask(y, x);
+        // is the result in the deletion array?
         if(A.hasValue(weight)) {
+          // set pixel to new value
           bitmap[x + y * w] = newValue;
+          // set flag
           changed = true;
         }
       }
     }
   }
+  // return the flag value
   return changed;
 }
 
+void phase6() {
+  // loop through every pixel
+  for(int y = 0; y < h; y++) {
+    for(int x = 0; x < w; x++) {
+      // do you want to look at this pixel?
+      if(bitmap[x + y * w] > 0) {
+        bitmap[x + y * w] = 1;
+      }
+    }
+  }
+}
+
+// find neighbours of the pixel in given coordinates
+// use the mask to calculate weights
 int useMask(int y, int x) {
+  // list for recording neighbours
   IntList neighbours = new IntList();
+  
   // top left
   if(x-1 >= 0 && y-1 >= 0)
     neighbours.append(bitmap[x - 1 + (y-1) * w]);
@@ -143,20 +194,23 @@ int useMask(int y, int x) {
     neighbours.append(bitmap[x - 1 + y * w]);
   else
     neighbours.append(0);
-
+    
+  // calculate and return weight
   return weight(neighbours);
 }
 
+// calculate weight for the given neighbours list
 int weight(IntList list) {
+  // int for recording sum
   int sum = 0;
+  // go through every neighbour
   for(int i = 0; i < list.size(); i++) {
+    // if it's not a 0 add a corresponding mask value
     if(list.get(i) > 0)
       sum += mask[i];
   }
   return sum;
 }
-
-
 
 void drawBitmap() {
   //create new image with height and width of the original image
